@@ -1,0 +1,403 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 200;
+}
+
+.modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 201;
+  width: min(680px, 95vw);
+  max-height: 90vh;
+  overflow-y: auto;
+  background: rgba(11, 14, 26, 0.97);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--radius-xl);
+  box-shadow:
+    0 40px 120px rgba(0,0,0,0.7),
+    0 0 0 1px rgba(255,255,255,0.04),
+    0 0 80px rgba(0,255,209,0.05);
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.topGlow {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+  box-shadow: 0 0 20px var(--cyan-glow);
+}
+
+/* ── Header ──────────────────────────────────────── */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.aiIcon {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, rgba(0,255,209,0.2), rgba(123,97,255,0.2));
+  border: 1px solid rgba(0,255,209,0.3);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--cyan);
+  box-shadow: 0 0 16px rgba(0,255,209,0.2);
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.title {
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.closeBtn {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 8px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: all var(--transition-fast);
+}
+
+.closeBtn:hover {
+  background: rgba(255,255,255,0.1);
+  color: var(--text-primary);
+  border-color: rgba(255,255,255,0.15);
+}
+
+/* ── Scan Area ───────────────────────────────────── */
+.scanArea {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: rgba(0,0,0,0.3);
+}
+
+.diagramPreview {
+  position: relative;
+  height: 130px;
+  background-image: radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px);
+  background-size: 20px 20px;
+  overflow: hidden;
+}
+
+.diagramNode {
+  position: absolute;
+  font-size: 10px;
+  font-weight: 600;
+  font-family: var(--font-heading);
+  border: 1px solid;
+  border-radius: var(--radius-sm);
+  padding: 4px 9px;
+  white-space: nowrap;
+  transition: box-shadow 0.5s ease;
+}
+
+.connectorSvg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.scanLine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(180deg, transparent, var(--cyan), transparent);
+  box-shadow: 0 0 12px var(--cyan), 0 0 24px rgba(0,255,209,0.4);
+  pointer-events: none;
+}
+
+.doneGlow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, rgba(0,255,209,0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.statusBar {
+  padding: 10px 16px;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+}
+
+.thinkingDots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--cyan);
+  animation: bounce 1s ease-in-out infinite;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); opacity: 0.4; }
+  50% { transform: translateY(-4px); opacity: 1; }
+}
+
+.statusText {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+
+.doneStatus {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--cyan);
+  font-family: var(--font-mono);
+}
+
+/* ── Steps ───────────────────────────────────────── */
+.stepsRow {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.stepItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.stepCircle {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+  transition: all var(--transition-smooth);
+}
+
+.stepDone {
+  background: var(--cyan);
+  color: var(--bg-space);
+  box-shadow: 0 0 12px var(--cyan-glow);
+}
+
+.stepActive {
+  background: rgba(0,255,209,0.15);
+  border: 1.5px solid var(--cyan);
+  color: var(--cyan);
+}
+
+.stepPending {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+}
+
+.stepLabel {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-heading);
+  white-space: nowrap;
+  transition: color var(--transition-smooth);
+}
+
+.stepLabelActive { color: var(--cyan); font-weight: 600; }
+.stepLabelDone { color: var(--text-secondary); }
+
+.stepConnector {
+  flex: 1;
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 0 6px;
+  transition: background var(--transition-smooth);
+}
+
+.stepConnectorDone {
+  background: linear-gradient(90deg, var(--cyan), rgba(0,255,209,0.4));
+}
+
+/* ── Files Section ───────────────────────────────── */
+.filesSection {
+  overflow: hidden;
+}
+
+.filesHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.filesTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.selectAllBtn {
+  background: none;
+  border: none;
+  color: var(--violet);
+  font-family: var(--font-heading);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.selectAllBtn:hover { color: var(--cyan); }
+
+.filesList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.fileRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  background: rgba(255,255,255,0.02);
+}
+
+.fileRow:hover {
+  background: rgba(255,255,255,0.04);
+  border-color: var(--border-subtle);
+}
+
+.fileRowSelected {
+  background: rgba(0,255,209,0.04);
+  border-color: rgba(0,255,209,0.15);
+}
+
+.checkbox {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1.5px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+}
+
+.checkboxChecked {
+  background: var(--cyan);
+  border-color: var(--cyan);
+  color: var(--bg-space);
+}
+
+.fileIcon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.fileName {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fileLang {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  border: 1px solid;
+  border-radius: var(--radius-pill);
+  padding: 1px 7px;
+  flex-shrink: 0;
+}
+
+.fileSize {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* ── Actions ─────────────────────────────────────── */
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.actionBtn {
+  font-size: 13px;
+}
+
+.actionBtnPrimary {
+  font-size: 13px;
+}
+
+.cancelBtn {
+  font-size: 13px;
+  margin-left: auto;
+}
+
+@media (max-width: 480px) {
+  .modal { padding: 20px; }
+  .stepsRow { flex-wrap: wrap; gap: 8px; }
+  .stepConnector { display: none; }
+}
