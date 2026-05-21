@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
@@ -52,6 +52,7 @@ export default function Workspace() {
   const [error, setError] = useState('');
 
   const whiteboardSaveTimeout = useRef(null);
+  const pendingWhiteboardState = useRef([]);
 
   useEffect(() => {
     const loadWorkspace = async () => {
@@ -65,10 +66,6 @@ export default function Workspace() {
         setProject(projectResponse.project);
         setNodes(Array.isArray(whiteboardResponse.whiteboardState) ? whiteboardResponse.whiteboardState : []);
         setError('');
-
-        if (socket) {
-          joinProject(projectId);
-        }
       } catch (err) {
         console.error('Workspace load failed:', err);
         setError(err.message || 'Failed to load workspace');
@@ -80,7 +77,13 @@ export default function Workspace() {
     if (projectId) {
       loadWorkspace();
     }
-  }, [projectId, socket]);
+  }, [projectId]);
+
+  useEffect(() => {
+    if (socket && projectId) {
+      joinProject(projectId);
+    }
+  }, [socket, projectId, joinProject]);
 
   useEffect(() => {
     if (!socket) return;
@@ -100,13 +103,63 @@ export default function Workspace() {
     };
   }, [socket]);
 
+  const flushWhiteboardState = useCallback(
+    (state = pendingWhiteboardState.current) => {
+      if (!Array.isArray(state)) return;
+
+      if (whiteboardSaveTimeout.current) {
+        clearTimeout(whiteboardSaveTimeout.current);
+        whiteboardSaveTimeout.current = null;
+      }
+
+      if (socket) {
+        emitWhiteboardSync(projectId, state);
+      }
+
+      projectService.saveWhiteboard(projectId, state).catch((err) => {
+        console.error('Error saving whiteboard:', err);
+      });
+    },
+    [emitWhiteboardSync, projectId, socket]
+  );
+
+  const scheduleWhiteboardSave = useCallback(
+    (state) => {
+      pendingWhiteboardState.current = state;
+
+      if (whiteboardSaveTimeout.current) {
+        clearTimeout(whiteboardSaveTimeout.current);
+      }
+
+      whiteboardSaveTimeout.current = setTimeout(() => {
+        flushWhiteboardState(state);
+      }, 2000);
+    },
+    [flushWhiteboardState]
+  );
+
+  useEffect(() => {
+    const handlePageExit = () => {
+      flushWhiteboardState();
+    };
+
+    window.addEventListener('beforeunload', handlePageExit);
+    window.addEventListener('pagehide', handlePageExit);
+
+    return () => {
+      window.removeEventListener('beforeunload', handlePageExit);
+      window.removeEventListener('pagehide', handlePageExit);
+      flushWhiteboardState();
+    };
+  }, [flushWhiteboardState]);
+
   const updateNodes = (updater) => {
     setNodes((prevNodes) => {
       const updatedNodes = typeof updater === 'function' ? updater(prevNodes) : updater;
       if (!Array.isArray(updatedNodes)) {
         return prevNodes;
       }
-      saveWhiteboardState(updatedNodes);
+      scheduleWhiteboardSave(updatedNodes);
       return updatedNodes;
     });
   };
@@ -131,28 +184,14 @@ export default function Workspace() {
     setSelectedNodeId(newNode.id);
   };
 
-  const saveWhiteboardState = (state) => {
-    if (whiteboardSaveTimeout.current) {
-      clearTimeout(whiteboardSaveTimeout.current);
-    }
-    whiteboardSaveTimeout.current = setTimeout(() => {
-      if (socket) {
-        emitWhiteboardSync(projectId, state);
-      }
-      projectService.saveWhiteboard(projectId, state).catch((err) => {
-        console.error('Error saving whiteboard:', err);
-      });
-    }, 2000);
-  };
-
-  const handleMoveNode = (nodeId, offset) => {
+  const handleMoveNode = (nodeId, position) => {
     updateNodes((prevNodes) =>
       prevNodes.map((node) => {
         if (node.id !== nodeId) return node;
         return {
           ...node,
-          x: clamp(node.x + offset.x, 0, 1000),
-          y: clamp(node.y + offset.y, 0, 1000),
+          x: clamp(position.x, 0, 1000),
+          y: clamp(position.y, 0, 1000),
         };
       })
     );

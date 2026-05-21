@@ -10,32 +10,6 @@ import { useAuth } from '../context/AuthContext';
 import { projectService } from '../services/project.service';
 import styles from './Dashboard.module.css';
 
-// ─── Particle burst on "New Project" ──────────────────────────────
-const ParticleBurst = ({ trigger }) => {
-  if (!trigger) return null;
-  return (
-    <div className={styles.particleBurst} aria-hidden>
-      {Array.from({ length: 12 }).map((_, i) => (
-        <motion.div
-          key={i}
-          className={styles.particle}
-          initial={{ scale: 0, x: 0, y: 0, opacity: 1 }}
-          animate={{
-            scale: [0, 1, 0],
-            x: Math.cos((i / 12) * Math.PI * 2) * (60 + Math.random() * 40),
-            y: Math.sin((i / 12) * Math.PI * 2) * (60 + Math.random() * 40),
-            opacity: [1, 1, 0],
-          }}
-          transition={{ duration: 0.8, ease: 'easeOut', delay: i * 0.02 }}
-          style={{
-            background: i % 3 === 0 ? 'var(--cyan)' : i % 3 === 1 ? 'var(--violet)' : '#FF61DC',
-          }}
-        />
-      ))}
-    </div>
-  );
-};
-
 // ─── Project Card ─────────────────────────────────────────────────
 const ProjectCard = ({ project, viewMode, onDelete }) => {
   const navigate = useNavigate();
@@ -273,7 +247,6 @@ export default function Dashboard() {
   const [projects, setProjects] = useState([]);
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
-  const [particleTrigger, setParticleTrigger] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('all');
@@ -302,18 +275,10 @@ export default function Dashboard() {
   });
 
   const handleNewProject = async () => {
-    setParticleTrigger(true);
-    setTimeout(() => {
-      setParticleTrigger(false);
-      createNewProject();
-    }, 700);
-  };
+    const projectName = prompt('Enter project name:', 'New Project');
+    if (!projectName) return;
 
-  const createNewProject = async () => {
     try {
-      const projectName = prompt('Enter project name:', 'New Project');
-      if (!projectName) return;
-
       const data = await projectService.createProject(projectName);
       setProjects([...projects, data.project]);
       navigate(`/workspace/${data.project._id}`);
@@ -434,14 +399,9 @@ export default function Dashboard() {
             onClick={handleNewProject}
             style={{ position: 'relative' }}
           >
-            <ParticleBurst trigger={particleTrigger} />
-            <motion.div
-              className={styles.newCardPlus}
-              animate={{ rotate: particleTrigger ? 135 : 0 }}
-              transition={{ duration: 0.3 }}
-            >
+            <div className={styles.newCardPlus}>
               <Plus size={28} />
-            </motion.div>
+            </div>
             <span className={styles.newCardLabel}>New Project</span>
             <span className={styles.newCardSub}>Start from blank canvas</span>
           </motion.div>

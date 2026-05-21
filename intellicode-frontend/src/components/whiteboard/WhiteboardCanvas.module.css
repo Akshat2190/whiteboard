@@ -42,7 +42,7 @@
   cursor: grab;
   user-select: none;
   border: 1px solid transparent;
-  transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 
 .node:hover {
