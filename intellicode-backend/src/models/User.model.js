@@ -48,7 +48,8 @@ userSchema.methods.comparePassword = function (candidatePassword) {
 };
 
 userSchema.statics.findByEmail = function (email) {
-  return this.findOne({ email });
+  const normalized = String(email || '').trim().toLowerCase();
+  return this.findOne({ email: normalized });
 };
 
 userSchema.methods.toJSON = function () {

@@ -25,7 +25,39 @@ const initSocket = (io) => {
     }
   });
 
+  const isRedisReady = () => redisClient && redisClient.status === 'ready';
+
+  const safeHSet = async (key, field, value) => {
+    if (!isRedisReady()) return;
+    try {
+      await redisClient.hset(key, field, value);
+    } catch (error) {
+      console.warn('Redis hset failed', error.message || error);
+    }
+  };
+
+  const safeHGetAll = async (key) => {
+    if (!isRedisReady()) return {};
+    try {
+      return await redisClient.hgetall(key);
+    } catch (error) {
+      console.warn('Redis hgetall failed', error.message || error);
+      return {};
+    }
+  };
+
+  const safeHDel = async (key, field) => {
+    if (!isRedisReady()) return;
+    try {
+      await redisClient.hdel(key, field);
+    } catch (error) {
+      console.warn('Redis hdel failed', error.message || error);
+    }
+  };
+
   io.on('connection', (socket) => {
+    socket.projectAuthCache = new Map();
+
     socket.on('join:project', async (projectId) => {
       try {
         const project = await Project.findById(projectId);
@@ -35,16 +67,17 @@ const initSocket = (io) => {
 
         const isAuthorized =
           project.owner.equals(socket.user._id) ||
-          project.collaborators.some((collab) => collab.user.equals(socket.user._id));
+          (Array.isArray(project.collaborators) && project.collaborators.some((collab) => collab.user.equals(socket.user._id)));
 
         if (!isAuthorized) {
           return;
         }
 
+        socket.projectAuthCache.set(projectId, true);
         socket.join(projectId);
-        await redisClient.hset(`online:${projectId}`, socket.user._id.toString(), JSON.stringify({ name: socket.user.name, avatar: socket.user.avatar }));
-        const onlineUsers = await redisClient.hgetall(`online:${projectId}`);
-        const parsedUsers = Object.entries(onlineUsers).reduce((acc, [key, value]) => {
+        await safeHSet(`online:${projectId}`, socket.user._id.toString(), JSON.stringify({ name: socket.user.name, avatar: socket.user.avatar }));
+        const onlineUsers = await safeHGetAll(`online:${projectId}`);
+        const parsedUsers = Object.entries(onlineUsers || {}).reduce((acc, [key, value]) => {
           try {
             acc[key] = JSON.parse(value);
           } catch (err) {
@@ -53,7 +86,11 @@ const initSocket = (io) => {
           return acc;
         }, {});
 
-        socket.emit('room:users', parsedUsers);
+        if (Object.keys(parsedUsers).length === 0) {
+          parsedUsers[socket.user._id.toString()] = { name: socket.user.name, avatar: socket.user.avatar };
+        }
+
+        io.to(projectId).emit('room:users', parsedUsers);
         socket.to(projectId).emit('user:joined', {
           userId: socket.user._id,
           name: socket.user.name,
@@ -64,10 +101,25 @@ const initSocket = (io) => {
       }
     });
 
-    socket.on('whiteboard:draw', (data) => {
+    socket.on('code:generated', (data) => {
+      if (!data?.projectId || !Array.isArray(data.files)) {
+        return;
+      }
+      socket.to(data.projectId).emit('code:generated', {
+        projectId: data.projectId,
+        files: data.files,
+        userId: socket.user._id,
+      });
+    });
+
+    socket.on('whiteboard:draw', async (data) => {
       if (!data?.projectId || !data?.object) {
         return;
       }
+
+      const isAuthorized = socket.projectAuthCache.get(data.projectId);
+      if (!isAuthorized) return;
+
       socket.to(data.projectId).emit('whiteboard:draw', {
         object: data.object,
         userId: socket.user._id,
@@ -75,24 +127,33 @@ const initSocket = (io) => {
     });
 
     socket.on('whiteboard:sync', async (data) => {
-      if (!data?.projectId || !data?.state) {
+      if (!data?.projectId || !Array.isArray(data.state)) {
         return;
       }
-      socket.to(data.projectId).emit('whiteboard:sync', { state: data.state });
-      try {
-        await Project.findByIdAndUpdate(data.projectId, { whiteboardState: data.state });
-      } catch (error) {
-        console.warn('whiteboard:sync save failed', error.message || error);
-      }
+
+      const isAuthorized = socket.projectAuthCache.get(data.projectId);
+      if (!isAuthorized) return;
+
+      socket.to(data.projectId).emit('whiteboard:sync', {
+        state: data.state,
+        userId: socket.user._id,
+      });
     });
 
     socket.on('whiteboard:clear', async (data) => {
       if (!data?.projectId) {
         return;
       }
+      const project = await Project.findById(data.projectId);
+      if (!project) return;
+      const isAuthorized =
+        project.owner.equals(socket.user._id) ||
+        (Array.isArray(project.collaborators) && project.collaborators.some((collab) => collab.user.equals(socket.user._id)));
+      if (!isAuthorized) return;
+
       socket.to(data.projectId).emit('whiteboard:clear');
       try {
-        await Project.findByIdAndUpdate(data.projectId, { whiteboardState: {} });
+        await Project.findByIdAndUpdate(data.projectId, { whiteboardState: [] });
       } catch (error) {
         console.warn('whiteboard:clear save failed', error.message || error);
       }
@@ -156,7 +217,7 @@ const initSocket = (io) => {
       try {
         const rooms = Array.from(socket.rooms).filter((room) => room !== socket.id);
         for (const projectId of rooms) {
-          await redisClient.hdel(`online:${projectId}`, socket.user._id.toString());
+          await safeHDel(`online:${projectId}`, socket.user._id.toString());
           socket.to(projectId).emit('user:left', {
             userId: socket.user._id,
             name: socket.user.name,

@@ -3,6 +3,7 @@ const http = require('http');
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const morgan = require('morgan');
 const connectDB = require('./src/config/db');
 const redisClient = require('./src/config/redis');
@@ -26,17 +27,44 @@ async function startServer() {
     console.log('Redis connected');
   });
 
+  // Redis is optional for local dev. If it is unavailable, the app will still start.
+  if (process.env.REDIS_URL) {
+    console.log('Redis configured, will connect on demand if available.');
+  }
+
   const app = express();
+  app.disable('etag');
   app.use(helmet());
+  app.set('trust proxy', 1);
+
+  const corsOrigin = 'http://localhost:5173';
   app.use(
     cors({
-      origin: process.env.CLIENT_URL,
+      origin: corsOrigin,
       credentials: true,
     })
   );
+  app.use(cookieParser());
   app.use(morgan('dev'));
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
+
+  app.use((req, res, next) => {
+    if (req.path.startsWith('/api/')) {
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.set('Pragma', 'no-cache');
+      res.set('Expires', '0');
+    }
+    next();
+  });
+
+  app.get('/', (req, res) => {
+    res.json({ success: true, message: 'IntelliCode API is running' });
+  });
+
+  app.get('/favicon.ico', (req, res) => {
+    res.sendStatus(204);
+  });
 
   app.use('/api/auth', authRoutes);
   app.use('/api/projects', projectRoutes);
@@ -49,7 +77,7 @@ async function startServer() {
   const { Server } = require('socket.io');
   const io = new Server(server, {
     cors: {
-      origin: process.env.CLIENT_URL,
+      origin: 'http://localhost:5173',
       methods: ['GET', 'POST', 'PUT', 'DELETE'],
       credentials: true,
     },

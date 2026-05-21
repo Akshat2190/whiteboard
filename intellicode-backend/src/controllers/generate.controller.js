@@ -18,8 +18,13 @@ const getLanguage = (filename) => {
 
 const generateCode = async (req, res, next) => {
   try {
-    const objects = req.body.objects;
-    if (!Array.isArray(objects) || objects.length === 0) {
+    const objects = Array.isArray(req.body.objects) && req.body.objects.length > 0
+      ? req.body.objects
+      : Array.isArray(req.body)
+      ? req.body
+      : [];
+
+    if (objects.length === 0) {
       return res.status(400).json({ success: false, error: 'No whiteboard objects provided' });
     }
 
@@ -41,7 +46,8 @@ const generateCode = async (req, res, next) => {
 
     res.status(201).json({ success: true, files: savedFiles });
   } catch (error) {
-    next(error);
+    console.error('Code generation failed:', error.message || error);
+    return res.status(200).json({ success: false, files: [] });
   }
 };
 

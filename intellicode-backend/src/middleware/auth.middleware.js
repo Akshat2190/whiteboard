@@ -4,7 +4,9 @@ const User = require('../models/User.model');
 const protect = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
-    const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
+    const headerToken = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
+    const cookieToken = req.cookies?.accessToken;
+    const token = headerToken || cookieToken;
 
     if (!token) {
       return res.status(401).json({ success: false, error: 'No token provided' });

@@ -1,5 +1,8 @@
 const { Anthropic } = require('@anthropic-ai/sdk');
 
+const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
+const anthropicClient = new Anthropic({ apiKey: anthropicApiKey });
+
 const parseCanvasObjects = (objects) => {
   const nodes = objects
     .filter((obj) => ['rect', 'circle', 'textbox'].includes(obj.type))
@@ -53,17 +56,13 @@ const generateCodeFromDiagram = async (objects) => {
   const { nodes, edges } = parseCanvasObjects(objects);
   const architecturePrompt = buildArchitecturePrompt(nodes, edges);
 
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  const response = await client.responses.create({
+  const response = await anthropicClient.messages.create({
     model: 'claude-sonnet-4-20250514',
     max_tokens: 4096,
     temperature: 0,
+    system:
+      'You are an expert full stack developer. Generate complete working boilerplate code based on the architecture described. Return ONLY a valid JSON object with no markdown fences, no explanation text, nothing else. Exact format: { "files": [ { "filename": "string", "code": "string", "language": "string" } ] }. Use React.js for frontend, Express.js for backend, MongoDB with Mongoose for database. Make every file complete and working.',
     messages: [
-      {
-        role: 'system',
-        content:
-          'You are an expert full stack developer. Generate complete working boilerplate code based on the architecture described. Return ONLY a valid JSON object with no markdown fences, no explanation text, nothing else. Exact format: { "files": [ { "filename": "string", "code": "string", "language": "string" } ] }. Use React.js for frontend, Express.js for backend, MongoDB with Mongoose for database. Make every file complete and working.',
-      },
       {
         role: 'user',
         content: architecturePrompt,
@@ -71,7 +70,7 @@ const generateCodeFromDiagram = async (objects) => {
     ],
   });
 
-  const textResponse = response?.output?.[0]?.content?.[0]?.text || response?.output?.[0]?.content?.find((item) => item.type === 'output_text')?.text || '';
+  const textResponse = response?.content?.[0]?.text || '';
   const cleaned = textResponse.replace(/```json|```/g, '').trim();
 
   let parsed;

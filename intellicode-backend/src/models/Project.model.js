@@ -36,7 +36,7 @@ const projectSchema = new mongoose.Schema({
   },
   whiteboardState: {
     type: mongoose.Schema.Types.Mixed,
-    default: {},
+    default: [],
   },
   createdAt: {
     type: Date,

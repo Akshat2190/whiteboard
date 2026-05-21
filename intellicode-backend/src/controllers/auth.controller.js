@@ -2,6 +2,40 @@ const jwt = require('jsonwebtoken');
 const redisClient = require('../config/redis');
 const User = require('../models/User.model');
 
+const parseExpiresInToMs = (value) => {
+  if (!value) return 0;
+  const match = /^([0-9]+)(s|m|h|d)?$/i.exec(value);
+  if (!match) {
+    return Number(value) || 0;
+  }
+
+  const amount = Number(match[1]);
+  const unit = match[2]?.toLowerCase();
+
+  switch (unit) {
+    case 's':
+      return amount * 1000;
+    case 'm':
+      return amount * 60 * 1000;
+    case 'h':
+      return amount * 60 * 60 * 1000;
+    case 'd':
+      return amount * 24 * 60 * 60 * 1000;
+    default:
+      return amount;
+  }
+};
+
+const getCookieOptions = (maxAgeMs) => {
+  const isProduction = process.env.NODE_ENV === 'production';
+  return {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax',
+    maxAge: maxAgeMs,
+  };
+};
+
 const signTokens = (userId) => {
   const accessToken = jwt.sign({ id: userId }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN,
@@ -31,7 +65,8 @@ const safeDeleteRefreshToken = async (userId) => {
 
 const register = async (req, res, next) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email: rawEmail, password } = req.body;
+    const email = rawEmail?.trim().toLowerCase();
 
     if (!name || !email || !password) {
       return res.status(400).json({ success: false, error: 'Name, email, and password are required' });
@@ -46,6 +81,11 @@ const register = async (req, res, next) => {
     const { accessToken, refreshToken } = signTokens(user._id);
 
     await safeStoreRefreshToken(user._id, refreshToken);
+    const refreshMaxAge = parseExpiresInToMs(process.env.JWT_REFRESH_EXPIRES_IN) || 30 * 24 * 60 * 60 * 1000;
+    const accessMaxAge = parseExpiresInToMs(process.env.JWT_EXPIRES_IN) || 60 * 60 * 1000;
+
+    res.cookie('refreshToken', refreshToken, getCookieOptions(refreshMaxAge));
+    res.cookie('accessToken', accessToken, getCookieOptions(accessMaxAge));
 
     res.status(201).json({
       success: true,
@@ -65,7 +105,9 @@ const register = async (req, res, next) => {
 
 const login = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
+    let { email, password } = req.body;
+    email = email?.trim().toLowerCase();
+    password = password?.trim();
 
     if (!email || !password) {
       return res.status(400).json({ success: false, error: 'Email and password are required' });
@@ -83,6 +125,11 @@ const login = async (req, res, next) => {
 
     const { accessToken, refreshToken } = signTokens(user._id);
     await safeStoreRefreshToken(user._id, refreshToken);
+    const refreshMaxAge = parseExpiresInToMs(process.env.JWT_REFRESH_EXPIRES_IN) || 30 * 24 * 60 * 60 * 1000;
+    const accessMaxAge = parseExpiresInToMs(process.env.JWT_EXPIRES_IN) || 60 * 60 * 1000;
+
+    res.cookie('refreshToken', refreshToken, getCookieOptions(refreshMaxAge));
+    res.cookie('accessToken', accessToken, getCookieOptions(accessMaxAge));
 
     res.status(200).json({
       success: true,
@@ -102,7 +149,7 @@ const login = async (req, res, next) => {
 
 const refreshToken = async (req, res, next) => {
   try {
-    const { refreshToken } = req.body;
+    const refreshToken = req.cookies?.refreshToken || req.body.refreshToken;
     if (!refreshToken) {
       return res.status(400).json({ success: false, error: 'Refresh token required' });
     }
@@ -121,9 +168,14 @@ const refreshToken = async (req, res, next) => {
       return res.status(401).json({ success: false, error: 'Refresh token expired or invalid' });
     }
 
-    const accessToken = jwt.sign({ id: decoded.id }, process.env.JWT_SECRET, {
-      expiresIn: process.env.JWT_EXPIRES_IN,
-    });
+    const { accessToken, refreshToken: newRefreshToken } = signTokens(decoded.id);
+    await safeStoreRefreshToken(decoded.id, newRefreshToken);
+
+    const refreshMaxAge = parseExpiresInToMs(process.env.JWT_REFRESH_EXPIRES_IN) || 30 * 24 * 60 * 60 * 1000;
+    const accessMaxAge = parseExpiresInToMs(process.env.JWT_EXPIRES_IN) || 60 * 60 * 1000;
+
+    res.cookie('refreshToken', newRefreshToken, getCookieOptions(refreshMaxAge));
+    res.cookie('accessToken', accessToken, getCookieOptions(accessMaxAge));
 
     res.status(200).json({ success: true, accessToken });
   } catch (error) {
@@ -133,13 +185,16 @@ const refreshToken = async (req, res, next) => {
 
 const logout = async (req, res, next) => {
   try {
-    const { refreshToken } = req.body;
+    const refreshToken = req.cookies?.refreshToken || req.body.refreshToken;
     if (!refreshToken) {
       return res.status(400).json({ success: false, error: 'Refresh token required' });
     }
 
     const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
     await safeDeleteRefreshToken(decoded.id);
+
+    res.clearCookie('refreshToken', getCookieOptions(0));
+    res.clearCookie('accessToken', getCookieOptions(0));
 
     res.status(200).json({ success: true, message: 'Logged out' });
   } catch (error) {

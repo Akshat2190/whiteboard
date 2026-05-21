@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Zap, ArrowRight } from 'lucide-react';
 import StarField from '../components/StarField';
+import { useAuth } from '../context/AuthContext';
 import styles from './Auth.module.css';
 
 const inputVariants = {
@@ -20,23 +21,46 @@ const cardVariants = {
 
 export default function Auth() {
   const navigate = useNavigate();
+  const { loginUser, registerUser, isAuthenticated, loading: authLoading } = useAuth();
   const [mode, setMode] = useState('login'); // 'login' | 'signup'
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [form, setForm] = useState({ name: '', email: '', password: '' });
 
-  const handleSubmit = (e) => {
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      navigate('/dashboard');
+    }
+  }, [authLoading, isAuthenticated, navigate]);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    setError('');
+
+    const email = form.email.trim().toLowerCase();
+    const password = form.password.trim();
+    const name = form.name.trim();
+
+    try {
+      if (mode === 'login') {
+        await loginUser(email, password);
+      } else {
+        await registerUser(name, email, password);
+      }
       navigate('/dashboard');
-    }, 1500);
+    } catch (err) {
+      setError(err.message || 'An error occurred');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const toggle = () => {
     setMode(m => m === 'login' ? 'signup' : 'login');
     setForm({ name: '', email: '', password: '' });
+    setError('');
   };
 
   return (
@@ -138,6 +162,27 @@ export default function Auth() {
             <div className={styles.dividerLine} />
           </div>
 
+          {/* Error message */}
+          {error && (
+            <motion.div
+              className={styles.errorBox}
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              style={{
+                padding: '12px 14px',
+                marginBottom: '16px',
+                borderRadius: '6px',
+                background: 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                color: '#EF4444',
+                fontSize: '14px',
+              }}
+            >
+              {error}
+            </motion.div>
+          )}
+
           {/* Form */}
           <form onSubmit={handleSubmit} className={styles.form}>
             <AnimatePresence>
@@ -158,6 +203,7 @@ export default function Auth() {
                     className={`input-field ${styles.input}`}
                     value={form.name}
                     onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                    disabled={loading}
                     required={mode === 'signup'}
                   />
                 </motion.div>
@@ -179,6 +225,7 @@ export default function Auth() {
                 className={`input-field ${styles.input}`}
                 value={form.email}
                 onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                disabled={loading}
                 required
               />
             </motion.div>
@@ -204,6 +251,7 @@ export default function Auth() {
                   className={`input-field ${styles.input} ${styles.pwInput}`}
                   value={form.password}
                   onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                  disabled={loading}
                   required
                 />
                 <button

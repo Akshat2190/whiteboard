@@ -157,7 +157,7 @@ const saveWhiteboard = async (req, res, next) => {
       return res.status(403).json({ success: false, error: 'Access denied' });
     }
 
-    project.whiteboardState = state || {};
+    project.whiteboardState = Array.isArray(state) ? state : [];
     await project.save();
 
     res.status(200).json({ success: true });

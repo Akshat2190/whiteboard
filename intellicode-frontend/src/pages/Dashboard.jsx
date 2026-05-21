@@ -6,49 +6,9 @@ import {
   MoreVertical, Star, Archive, Trash2, Zap, Grid, List,
   ChevronRight, TrendingUp, Code2, GitBranch, Activity
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { projectService } from '../services/project.service';
 import styles from './Dashboard.module.css';
-
-// ─── Mock data ───────────────────────────────────────────────────
-const PROJECTS = [
-  {
-    id: 'p1', name: 'E-Commerce Platform', desc: 'Microservices architecture with auth, cart, and payment flows',
-    lastEdited: '2 hours ago', collaborators: ['AN', 'SL', 'RK'],
-    color: '#00FFD1', tags: ['Next.js', 'PostgreSQL'], starred: true, nodes: 14, generated: true,
-  },
-  {
-    id: 'p2', name: 'ML Pipeline Orchestrator', desc: 'Data ingestion → feature engineering → model training pipeline',
-    lastEdited: '1 day ago', collaborators: ['MJ', 'AN'],
-    color: '#7B61FF', tags: ['Python', 'FastAPI', 'Redis'], starred: false, nodes: 22, generated: true,
-  },
-  {
-    id: 'p3', name: 'Real-time Chat App', desc: 'WebSocket-based chat with channels, DMs, and file sharing',
-    lastEdited: '3 days ago', collaborators: ['SL'],
-    color: '#FF61DC', tags: ['Socket.IO', 'Express'], starred: true, nodes: 9, generated: false,
-  },
-  {
-    id: 'p4', name: 'API Gateway Design', desc: 'Rate limiting, auth middleware, and service routing patterns',
-    lastEdited: '1 week ago', collaborators: ['RK', 'MJ', 'TH', 'AN'],
-    color: '#FFB800', tags: ['Go', 'gRPC'], starred: false, nodes: 18, generated: true,
-  },
-  {
-    id: 'p5', name: 'Booking System', desc: 'Calendar-based scheduling with notifications and conflict resolution',
-    lastEdited: '2 weeks ago', collaborators: ['TH'],
-    color: '#00FFD1', tags: ['Rails', 'Postgres'], starred: false, nodes: 11, generated: false,
-  },
-  {
-    id: 'p6', name: 'IoT Dashboard', desc: 'Device management, telemetry streaming, and alert configuration',
-    lastEdited: '1 month ago', collaborators: ['SL', 'RK'],
-    color: '#7B61FF', tags: ['MQTT', 'TimescaleDB'], starred: false, nodes: 27, generated: true,
-  },
-];
-
-const AVATAR_COLORS = {
-  AN: 'linear-gradient(135deg, #00FFD1, #00CCAA)',
-  SL: 'linear-gradient(135deg, #7B61FF, #5B41DF)',
-  RK: 'linear-gradient(135deg, #FF61DC, #CC41B9)',
-  MJ: 'linear-gradient(135deg, #FFB800, #FF8C00)',
-  TH: 'linear-gradient(135deg, #00C6FF, #0072FF)',
-};
 
 // ─── Particle burst on "New Project" ──────────────────────────────
 const ParticleBurst = ({ trigger }) => {
@@ -77,9 +37,30 @@ const ParticleBurst = ({ trigger }) => {
 };
 
 // ─── Project Card ─────────────────────────────────────────────────
-const ProjectCard = ({ project, viewMode, onClick }) => {
-  const [menuOpen, setMenuOpen] = useState(false);
+const ProjectCard = ({ project, viewMode, onDelete }) => {
   const navigate = useNavigate();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const collaborators = Array.isArray(project.collaborators) ? project.collaborators : [];
+  const collaboratorAvatars = collaborators.slice(0, 3);
+  const moreCollaborators = Math.max(0, collaborators.length - 3);
+  const tags = Array.isArray(project.tags) ? project.tags : [];
+
+  const handleDelete = async (e) => {
+    e.stopPropagation();
+    if (!confirm('Are you sure you want to delete this project?')) return;
+    
+    setDeleting(true);
+    try {
+      await projectService.deleteProject(project._id);
+      onDelete?.(project._id);
+    } catch (error) {
+      console.error('Failed to delete project:', error);
+      alert('Failed to delete project');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   if (viewMode === 'list') {
     return (
@@ -90,25 +71,30 @@ const ProjectCard = ({ project, viewMode, onClick }) => {
         animate={{ opacity: 1, x: 0 }}
         exit={{ opacity: 0, x: -20 }}
         whileHover={{ x: 4 }}
-        onClick={() => navigate(`/workspace/${project.id}`)}
+        onClick={() => navigate(`/workspace/${project._id}`)}
       >
-        <div className={styles.listCardDot} style={{ background: project.color, boxShadow: `0 0 10px ${project.color}60` }} />
+        <div className={styles.listCardDot} style={{ background: '#7B61FF' }} />
         <div className={styles.listCardInfo}>
           <div className={styles.listCardName}>{project.name}</div>
-          <div className={styles.listCardDesc}>{project.desc}</div>
+          <div className={styles.listCardDesc}>{project.description || 'No description'}</div>
         </div>
         <div className={styles.listCardMeta}>
-          {project.tags.map(t => <span key={t} className={styles.tag}>{t}</span>)}
-        </div>
-        <div className={styles.listCardStats}>
-          <span className={styles.statChip}><Code2 size={11} /> {project.nodes} nodes</span>
-        </div>
-        <div className={styles.avatarRow}>
-          {project.collaborators.slice(0, 3).map((init) => (
-            <div key={init} className={styles.collabAvatar} style={{ background: AVATAR_COLORS[init] }}>{init}</div>
+          {tags.map((t) => (
+            <span key={t} className={styles.tag}>{t}</span>
           ))}
         </div>
-        <span className={styles.listCardTime}><Clock size={11} /> {project.lastEdited}</span>
+        <div className={styles.listCardStats}>
+          <span className={styles.statChip}><Code2 size={11} /> {project.nodes || 0} nodes</span>
+        </div>
+        <div className={styles.avatarRow}>
+          {collaboratorAvatars.map((init) => (
+            <div key={init} className={styles.collabAvatar} style={{ background: '#7B61FF' }}>
+              {typeof init === 'string' ? init.slice(0, 2).toUpperCase() : '??'}
+            </div>
+          ))}
+          {moreCollaborators > 0 && <span className={styles.collabMore}>+{moreCollaborators}</span>}
+        </div>
+        <span className={styles.listCardTime}><Clock size={11} /> {project.lastEdited || '—'}</span>
         <ChevronRight size={14} className={styles.chevron} />
       </motion.div>
     );
@@ -125,12 +111,12 @@ const ProjectCard = ({ project, viewMode, onClick }) => {
       transition={{ type: 'spring', stiffness: 300, damping: 25 }}
     >
       {/* Card top accent */}
-      <div className={styles.cardAccent} style={{ background: project.color, boxShadow: `0 0 24px ${project.color}60` }} />
+      <div className={styles.cardAccent} style={{ background: project.color || '#7B61FF', boxShadow: `0 0 24px ${project.color || '#7B61FF'}60` }} />
 
       {/* Header */}
       <div className={styles.cardHead}>
-        <div className={styles.cardIcon} style={{ background: `${project.color}18`, border: `1px solid ${project.color}40` }}>
-          <Code2 size={16} style={{ color: project.color }} />
+        <div className={styles.cardIcon} style={{ background: `${project.color || '#7B61FF'}18`, border: `1px solid ${project.color || '#7B61FF'}40` }}>
+          <Code2 size={16} style={{ color: project.color || '#7B61FF' }} />
         </div>
         <div className={styles.cardActions}>
           {project.starred && <Star size={14} className={styles.starIcon} style={{ color: '#FFB800', fill: '#FFB800' }} />}
@@ -151,15 +137,19 @@ const ProjectCard = ({ project, viewMode, onClick }) => {
                   exit={{ opacity: 0, scale: 0.9, y: -8 }}
                   transition={{ duration: 0.15 }}
                 >
-                  {[
-                    { icon: Star, label: 'Star' },
-                    { icon: Archive, label: 'Archive' },
-                    { icon: Trash2, label: 'Delete', danger: true },
-                  ].map(({ icon: I, label, danger }) => (
-                    <button key={label} className={`${styles.dropItem} ${danger ? styles.danger : ''}`} onClick={e => e.stopPropagation()}>
-                      <I size={13} /> {label}
-                    </button>
-                  ))}
+                  <button className={styles.dropItem} onClick={e => e.stopPropagation()}>
+                    <Star size={13} /> Star
+                  </button>
+                  <button className={styles.dropItem} onClick={e => e.stopPropagation()}>
+                    <Archive size={13} /> Archive
+                  </button>
+                  <button
+                    className={`${styles.dropItem} ${styles.danger}`}
+                    onClick={handleDelete}
+                    disabled={deleting}
+                  >
+                    <Trash2 size={13} /> {deleting ? 'Deleting...' : 'Delete'}
+                  </button>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -168,52 +158,49 @@ const ProjectCard = ({ project, viewMode, onClick }) => {
       </div>
 
       {/* Content */}
-      <div className={styles.cardBody} onClick={() => navigate(`/workspace/${project.id}`)}>
+      <div className={styles.cardBody} onClick={() => navigate(`/workspace/${project._id}`)}>
         <h3 className={styles.cardName}>{project.name}</h3>
-        <p className={styles.cardDesc}>{project.desc}</p>
+        <p className={styles.cardDesc}>{project.description || 'No description'}</p>
         <div className={styles.tagRow}>
-          {project.tags.map(t => <span key={t} className={styles.tag}>{t}</span>)}
+          {tags.map((tag) => (
+            <span key={tag} className={styles.tag}>{tag}</span>
+          ))}
         </div>
       </div>
 
       {/* Footer */}
       <div className={styles.cardFooter}>
         <div className={styles.collabRow}>
-          {project.collaborators.slice(0, 4).map((init) => (
-            <div key={init} className={styles.collabAvatar} style={{ background: AVATAR_COLORS[init] }}>{init}</div>
-          ))}
-          {project.collaborators.length > 4 && (
-            <div className={styles.collabMore}>+{project.collaborators.length - 4}</div>
+          {collaborators.length > 4 && (
+            <div className={styles.collabMore}>+{collaborators.length - 4}</div>
           )}
         </div>
         <div className={styles.cardTimestamp}>
           <Clock size={11} />
-          <span>{project.lastEdited}</span>
+          <span>{new Date(project.updatedAt).toLocaleDateString()}</span>
         </div>
       </div>
-
-      {/* Generated badge */}
-      {project.generated && (
-        <div className={styles.generatedBadge}>
-          <Zap size={10} /> Code ready
-        </div>
-      )}
     </motion.div>
   );
 };
 
 // ─── Sidebar ──────────────────────────────────────────────────────
-const Sidebar = () => {
+const Sidebar = ({ projects }) => {
   const navigate = useNavigate();
+  const { logoutUser } = useAuth();
   const [active, setActive] = useState('all');
 
   const filters = [
-    { id: 'all', label: 'All Projects', count: 6 },
-    { id: 'starred', label: 'Starred', count: 2 },
-    { id: 'recent', label: 'Recent', count: 3 },
-    { id: 'shared', label: 'Shared with me', count: 1 },
+    { id: 'all', label: 'All Projects', count: projects.length },
+    { id: 'starred', label: 'Starred', count: 0 },
+    { id: 'recent', label: 'Recent', count: Math.min(3, projects.length) },
+    { id: 'shared', label: 'Shared with me', count: 0 },
     { id: 'archived', label: 'Archived', count: 0 },
   ];
+
+  const handleLogout = async () => {
+    await logoutUser();
+  };
 
   return (
     <motion.aside
@@ -250,9 +237,9 @@ const Sidebar = () => {
       {/* Recent projects */}
       <div className={styles.sidebarSection}>
         <span className={styles.sidebarSectionLabel}>Recent</span>
-        {PROJECTS.slice(0, 4).map(p => (
-          <button key={p.id} className={styles.sidebarProject} onClick={() => navigate(`/workspace/${p.id}`)}>
-            <div className={styles.sidebarProjectDot} style={{ background: p.color }} />
+        {projects.slice(0, 4).map(p => (
+          <button key={p._id} className={styles.sidebarProject} onClick={() => navigate(`/workspace/${p._id}`)}>
+            <div className={styles.sidebarProjectDot} style={{ background: '#7B61FF' }} />
             <span className={styles.sidebarProjectName}>{p.name}</span>
           </button>
         ))}
@@ -261,7 +248,7 @@ const Sidebar = () => {
       {/* Bottom actions */}
       <div className={styles.sidebarBottom}>
         <button className={styles.sidebarBottomBtn}><Settings size={15} /> Settings</button>
-        <button className={styles.sidebarBottomBtn} onClick={() => navigate('/')}><LogOut size={15} /> Sign out</button>
+        <button className={styles.sidebarBottomBtn} onClick={handleLogout}><LogOut size={15} /> Sign out</button>
       </div>
     </motion.aside>
   );
@@ -282,37 +269,66 @@ const SkeletonCard = () => (
 // ─── Main Component ───────────────────────────────────────────────
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [projects, setProjects] = useState([]);
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
   const [particleTrigger, setParticleTrigger] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [filter, setFilter] = useState('all');
 
   useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 900);
-    return () => clearTimeout(t);
+    const loadProjects = async () => {
+      try {
+        setLoading(true);
+        const data = await projectService.getProjects();
+        setProjects(data.projects || []);
+        setError('');
+      } catch (err) {
+        setError('Failed to load projects');
+        console.error('Error loading projects:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProjects();
   }, []);
 
-  const filtered = PROJECTS.filter(p => {
+  const filtered = projects.filter(p => {
     const q = search.toLowerCase();
-    return (
-      p.name.toLowerCase().includes(q) ||
-      p.desc.toLowerCase().includes(q) ||
-      p.tags.some(t => t.toLowerCase().includes(q))
-    );
+    return p.name.toLowerCase().includes(q);
   });
 
-  const handleNewProject = () => {
+  const handleNewProject = async () => {
     setParticleTrigger(true);
     setTimeout(() => {
       setParticleTrigger(false);
-      navigate('/workspace/new');
+      createNewProject();
     }, 700);
+  };
+
+  const createNewProject = async () => {
+    try {
+      const projectName = prompt('Enter project name:', 'New Project');
+      if (!projectName) return;
+
+      const data = await projectService.createProject(projectName);
+      setProjects([...projects, data.project]);
+      navigate(`/workspace/${data.project._id}`);
+    } catch (err) {
+      alert('Failed to create project: ' + err.message);
+    }
+  };
+
+  const handleDeleteProject = (id) => {
+    setProjects(projects.filter(p => p._id !== id));
   };
 
   return (
     <div className={styles.layout}>
-      <Sidebar />
+      <Sidebar projects={projects} />
 
       <main className={styles.main}>
         {/* Top bar */}
@@ -374,10 +390,10 @@ export default function Dashboard() {
           transition={{ delay: 0.2, duration: 0.5 }}
         >
           {[
-            { icon: Code2, label: 'Total Projects', value: '6', color: 'var(--cyan)', trend: '+2 this month' },
-            { icon: TrendingUp, label: 'Code Generated', value: '42K', color: 'var(--violet)', trend: 'lines' },
-            { icon: Users, label: 'Collaborators', value: '5', color: '#FF61DC', trend: 'active' },
-            { icon: GitBranch, label: 'Diagrams', value: '101', color: '#FFB800', trend: 'total nodes' },
+            { icon: Code2, label: 'Total Projects', value: projects.length.toString(), color: 'var(--cyan)', trend: '' },
+            { icon: TrendingUp, label: 'Code Generated', value: '0', color: 'var(--violet)', trend: '' },
+            { icon: Users, label: 'Collaborators', value: '0', color: '#FF61DC', trend: '' },
+            { icon: GitBranch, label: 'Diagrams', value: '0', color: '#FFB800', trend: '' },
           ].map(({ icon: Icon, label, value, color, trend }) => (
             <div key={label} className={styles.statCard}>
               <div className={styles.statCardIcon} style={{ background: `${color}18`, border: `1px solid ${color}30` }}>
@@ -434,8 +450,8 @@ export default function Dashboard() {
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} />)
             ) : (
-              filtered.map((p, i) => (
-                <ProjectCard key={p.id} project={p} viewMode={viewMode} />
+              filtered.map((p) => (
+                <ProjectCard key={p._id || p.id} project={p} viewMode={viewMode} onDelete={handleDeleteProject} />
               ))
             )}
           </AnimatePresence>
