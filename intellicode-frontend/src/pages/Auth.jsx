@@ -1,23 +1,8 @@
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Zap, ArrowRight } from 'lucide-react';
-import StarField from '../components/StarField';
 import { useAuth } from '../context/AuthContext';
 import styles from './Auth.module.css';
-
-const inputVariants = {
-  hidden: { opacity: 0, y: 10 },
-  visible: (i) => ({
-    opacity: 1, y: 0,
-    transition: { delay: i * 0.08, duration: 0.4, ease: [0.4, 0, 0.2, 1] }
-  }),
-};
-
-const cardVariants = {
-  login: { opacity: 1, scale: 1, transition: { duration: 0.4, ease: [0.4, 0, 0.2, 1] } },
-  signup: { opacity: 1, scale: 1, transition: { duration: 0.4, ease: [0.4, 0, 0.2, 1] } },
-};
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -65,47 +50,27 @@ export default function Auth() {
 
   return (
     <div className={styles.page}>
-      <StarField count={100} />
-
       {/* Ambient orbs */}
       <div className={styles.orbLeft} />
       <div className={styles.orbRight} />
 
       {/* Logo */}
-      <motion.div
-        className={styles.logoBar}
-        initial={{ y: -30, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.5 }}
-        onClick={() => navigate('/')}
-      >
+      <div className={styles.logoBar} onClick={() => navigate('/')}>
         <div className={styles.logoIcon}><Zap size={16} /></div>
         <span className={styles.logoText}>IntelliCode</span>
-      </motion.div>
+      </div>
 
       {/* Auth Card */}
       <div className={styles.center}>
-        <motion.div
-          className={styles.card}
-          key={mode}
-          initial={{ opacity: 0, y: 30, scale: 0.97 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
-        >
+        <div className={styles.card}>
           {/* Card glow top line */}
           <div className={styles.cardTopGlow} />
 
           {/* Header */}
           <div className={styles.cardHeader}>
-            <motion.h1
-              className={styles.cardTitle}
-              key={mode + '-title'}
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3 }}
-            >
+            <h1 className={styles.cardTitle}>
               {mode === 'login' ? 'Welcome back' : 'Create account'}
-            </motion.h1>
+            </h1>
             <p className={styles.cardSub}>
               {mode === 'login'
                 ? 'Sign in to continue building with AI'
@@ -116,11 +81,7 @@ export default function Auth() {
           {/* Toggle pills */}
           <div className={styles.toggleRow}>
             <div className={styles.toggleTrack}>
-              <motion.div
-                className={styles.toggleThumb}
-                animate={{ x: mode === 'login' ? 0 : '100%' }}
-                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-              />
+              <div className={styles.toggleThumb} />
               <button
                 className={`${styles.toggleBtn} ${mode === 'login' ? styles.active : ''}`}
                 onClick={() => setMode('login')}
@@ -139,10 +100,8 @@ export default function Auth() {
           </div>
 
           {/* Google OAuth */}
-          <motion.button
+          <button
             className={styles.googleBtn}
-            whileHover={{ scale: 1.02, borderColor: 'rgba(255,255,255,0.2)' }}
-            whileTap={{ scale: 0.98 }}
             id="auth-google"
             type="button"
           >
@@ -153,7 +112,7 @@ export default function Auth() {
               <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
             </svg>
             <span>Continue with Google</span>
-          </motion.button>
+          </button>
 
           {/* Divider */}
           <div className={styles.divider}>
@@ -185,38 +144,23 @@ export default function Auth() {
 
           {/* Form */}
           <form onSubmit={handleSubmit} className={styles.form}>
-            <AnimatePresence>
-              {mode === 'signup' && (
-                <motion.div
-                  className={styles.fieldWrap}
-                  custom={0}
-                  variants={inputVariants}
-                  initial="hidden"
-                  animate="visible"
-                  exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-                >
-                  <label className={styles.label} htmlFor="auth-name">Full name</label>
-                  <input
-                    id="auth-name"
-                    type="text"
-                    placeholder="Alex Nova"
-                    className={`input-field ${styles.input}`}
-                    value={form.name}
-                    onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                    disabled={loading}
-                    required={mode === 'signup'}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
+            {mode === 'signup' && (
+              <div className={styles.fieldWrap}>
+                <label className={styles.label} htmlFor="auth-name">Full name</label>
+                <input
+                  id="auth-name"
+                  type="text"
+                  placeholder="Alex Nova"
+                  className={`input-field ${styles.input}`}
+                  value={form.name}
+                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                  disabled={loading}
+                  required={mode === 'signup'}
+                />
+              </div>
+            )}
 
-            <motion.div
-              className={styles.fieldWrap}
-              custom={1}
-              variants={inputVariants}
-              initial="hidden"
-              animate="visible"
-            >
+            <div className={styles.fieldWrap}>
               <label className={styles.label} htmlFor="auth-email">Email address</label>
               <input
                 id="auth-email"
@@ -228,15 +172,9 @@ export default function Auth() {
                 disabled={loading}
                 required
               />
-            </motion.div>
+            </div>
 
-            <motion.div
-              className={styles.fieldWrap}
-              custom={2}
-              variants={inputVariants}
-              initial="hidden"
-              animate="visible"
-            >
+            <div className={styles.fieldWrap}>
               <div className={styles.labelRow}>
                 <label className={styles.label} htmlFor="auth-password">Password</label>
                 {mode === 'login' && (
@@ -263,20 +201,14 @@ export default function Auth() {
                   {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
-            </motion.div>
+            </div>
 
             {/* Submit */}
-            <motion.button
+            <button
               id="auth-submit"
               type="submit"
               className={`btn btn-primary ${styles.submitBtn}`}
               disabled={loading}
-              whileHover={{ scale: loading ? 1 : 1.02 }}
-              whileTap={{ scale: loading ? 1 : 0.98 }}
-              custom={3}
-              variants={inputVariants}
-              initial="hidden"
-              animate="visible"
             >
               {loading ? (
                 <div className={styles.spinner} />
@@ -286,7 +218,7 @@ export default function Auth() {
                   <ArrowRight size={16} />
                 </>
               )}
-            </motion.button>
+            </button>
           </form>
 
           {/* Switch mode link */}
@@ -306,7 +238,7 @@ export default function Auth() {
               <a href="#">Privacy Policy</a>.
             </p>
           )}
-        </motion.div>
+        </div>
       </div>
     </div>
   );
