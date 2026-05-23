@@ -1,70 +1,32 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate, useParams } from 'react-router-dom';
-import {
-  MousePointer2,
-  Square,
-  Circle,
-  ArrowRight,
-  Type,
-  Eraser,
-  Palette,
-  Zap,
-  ChevronLeft,
-  Plus,
-  AlertCircle,
-} from 'lucide-react';
+import { Zap, ChevronLeft, AlertCircle } from 'lucide-react';
 import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
 import { projectService } from '../services/project.service';
 import { generateService } from '../services/generate.service';
 import CodeGenModal from '../components/CodeGenModal';
-import WhiteboardCanvas from '../components/whiteboard/WhiteboardCanvas';
-import styles from './Workspace.module.css';
-
-const TOOLBAR_TOOLS = [
-  { id: 'select', icon: MousePointer2, label: 'Select' },
-  { id: 'rect', icon: Square, label: 'Rectangle' },
-  { id: 'circle', icon: Circle, label: 'Circle' },
-  { id: 'arrow', icon: ArrowRight, label: 'Arrow' },
-  { id: 'text', icon: Type, label: 'Text' },
-  { id: 'eraser', icon: Eraser, label: 'Eraser' },
-  { id: 'color', icon: Palette, label: 'Color' },
-];
-
-function clamp(value, min, max) {
-  return Math.min(Math.max(value, min), max);
-}
+import Whiteboard from '../components/Whiteboard/Whiteboard';
 
 export default function Workspace() {
   const navigate = useNavigate();
   const { id: projectId } = useParams();
   const { user } = useAuth();
-  const { socket, joinProject, emitWhiteboardSync, onlineUsers } = useSocket();
+  const { socket, joinProject } = useSocket();
 
   const [project, setProject] = useState(null);
-  const [nodes, setNodes] = useState([]);
-  const [activeTool, setActiveTool] = useState('select');
-  const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [showCodeGen, setShowCodeGen] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const whiteboardSaveTimeout = useRef(null);
-  const pendingWhiteboardState = useRef([]);
-
   useEffect(() => {
     const loadWorkspace = async () => {
       try {
         setLoading(true);
-        const [projectResponse, whiteboardResponse] = await Promise.all([
-          projectService.getProject(projectId),
-          projectService.getWhiteboard(projectId).catch(() => ({ whiteboardState: [] })),
-        ]);
-
+        const projectResponse = await projectService.getProject(projectId);
         setProject(projectResponse.project);
-        setNodes(Array.isArray(whiteboardResponse.whiteboardState) ? whiteboardResponse.whiteboardState : []);
         setError('');
       } catch (err) {
         console.error('Workspace load failed:', err);
@@ -74,9 +36,7 @@ export default function Workspace() {
       }
     };
 
-    if (projectId) {
-      loadWorkspace();
-    }
+    if (projectId) loadWorkspace();
   }, [projectId]);
 
   useEffect(() => {
@@ -85,253 +45,104 @@ export default function Workspace() {
     }
   }, [socket, projectId, joinProject]);
 
-  useEffect(() => {
-    if (!socket) return;
-
-    const handleWhiteboardMessage = (data) => {
-      const next = data?.object || data?.state;
-      if (!Array.isArray(next)) return;
-      setNodes(next);
-    };
-
-    socket.on('whiteboard:draw', handleWhiteboardMessage);
-    socket.on('whiteboard:sync', handleWhiteboardMessage);
-
-    return () => {
-      socket.off('whiteboard:draw', handleWhiteboardMessage);
-      socket.off('whiteboard:sync', handleWhiteboardMessage);
-    };
-  }, [socket]);
-
-  const flushWhiteboardState = useCallback(
-    (state = pendingWhiteboardState.current) => {
-      if (!Array.isArray(state)) return;
-
-      if (whiteboardSaveTimeout.current) {
-        clearTimeout(whiteboardSaveTimeout.current);
-        whiteboardSaveTimeout.current = null;
-      }
-
-      if (socket) {
-        emitWhiteboardSync(projectId, state);
-      }
-
-      projectService.saveWhiteboard(projectId, state).catch((err) => {
-        console.error('Error saving whiteboard:', err);
-      });
-    },
-    [emitWhiteboardSync, projectId, socket]
-  );
-
-  const scheduleWhiteboardSave = useCallback(
-    (state) => {
-      pendingWhiteboardState.current = state;
-
-      if (whiteboardSaveTimeout.current) {
-        clearTimeout(whiteboardSaveTimeout.current);
-      }
-
-      whiteboardSaveTimeout.current = setTimeout(() => {
-        flushWhiteboardState(state);
-      }, 2000);
-    },
-    [flushWhiteboardState]
-  );
-
-  useEffect(() => {
-    const handlePageExit = () => {
-      flushWhiteboardState();
-    };
-
-    window.addEventListener('beforeunload', handlePageExit);
-    window.addEventListener('pagehide', handlePageExit);
-
-    return () => {
-      window.removeEventListener('beforeunload', handlePageExit);
-      window.removeEventListener('pagehide', handlePageExit);
-      flushWhiteboardState();
-    };
-  }, [flushWhiteboardState]);
-
-  const updateNodes = (updater) => {
-    setNodes((prevNodes) => {
-      const updatedNodes = typeof updater === 'function' ? updater(prevNodes) : updater;
-      if (!Array.isArray(updatedNodes)) {
-        return prevNodes;
-      }
-      scheduleWhiteboardSave(updatedNodes);
-      return updatedNodes;
-    });
-  };
-
-  const createNewNode = () => {
-    const shapeType = ['rect', 'circle', 'arrow'].includes(activeTool) ? activeTool : 'rect';
-    return {
-      id: Date.now().toString(),
-      x: 80,
-      y: 80,
-      w: 140,
-      h: 60,
-      label: 'New node',
-      color: '#7B61FF',
-      type: shapeType,
-    };
-  };
-
-  const handleAddNode = () => {
-    const newNode = createNewNode();
-    updateNodes((prev) => [...prev, newNode]);
-    setSelectedNodeId(newNode.id);
-  };
-
-  const handleMoveNode = (nodeId, position) => {
-    updateNodes((prevNodes) =>
-      prevNodes.map((node) => {
-        if (node.id !== nodeId) return node;
-        return {
-          ...node,
-          x: clamp(position.x, 0, 1000),
-          y: clamp(position.y, 0, 1000),
-        };
-      })
-    );
-  };
-
-  const handleDeleteNode = (nodeId) => {
-    updateNodes((prev) => prev.filter((item) => item.id !== nodeId));
-    if (selectedNodeId === nodeId) {
-      setSelectedNodeId(null);
-    }
-  };
-
-  const handleColorNode = (nodeId) => {
-    const colors = ['#7B61FF', '#00FFD1', '#FF5CA8', '#FFC72C', '#4EC5FF'];
-    updateNodes((prev) =>
-      prev.map((item) =>
-        item.id === nodeId
-          ? { ...item, color: colors[(colors.indexOf(item.color) + 1) % colors.length] }
-          : item
-      )
-    );
-  };
-
-  const handleLabelChange = (nodeId, label) => {
-    updateNodes((prev) => prev.map((item) => (item.id === nodeId ? { ...item, label } : item)));
-  };
-
-  const handleSelectNode = (nodeId) => {
-    setSelectedNodeId(nodeId);
-  };
-
-  const handleGenerateCode = async () => {
-    if (!nodes.length) {
-      setError('Add some nodes before generating code.');
+  const handleGenerateCode = useCallback(async (elements) => {
+    if (!elements?.length) {
+      setError('Draw your architecture first.');
       return;
     }
-
     setGenerating(true);
     setShowCodeGen(true);
     setError('');
-
     try {
-      await generateService.generateCode(projectId, nodes);
+      await generateService.generateCode(projectId, elements);
     } catch (err) {
       console.error('Generate code failed:', err);
       setError(err.message || 'Code generation failed');
     } finally {
       setGenerating(false);
-      setShowCodeGen(false);
     }
-  };
-
+  }, [projectId]);
 
   if (loading) {
     return (
-      <div className={styles.pageLoader}>
-        <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity }}>
-          <Zap size={32} />
+      <div style={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#121212', color: '#fff', gap: 16, fontFamily: 'Inter, sans-serif' }}>
+        <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}>
+          <Zap size={32} color="#6965db" />
         </motion.div>
-        <p>Loading workspace...</p>
+        <p style={{ color: 'rgba(255,255,255,0.5)' }}>Loading workspace...</p>
       </div>
     );
   }
 
   if (error && !project) {
     return (
-      <div className={styles.pageError}>
-        <AlertCircle size={36} />
-        <p>{error}</p>
-        <button className="btn btn-primary" onClick={() => navigate('/dashboard')}>
-          Back to dashboard
+      <div style={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#121212', color: '#fff', gap: 16, fontFamily: 'Inter, sans-serif' }}>
+        <AlertCircle size={36} color="#ef4444" />
+        <p style={{ color: 'rgba(255,255,255,0.7)' }}>{error}</p>
+        <button
+          onClick={() => navigate('/dashboard')}
+          style={{ background: '#6965db', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', fontWeight: 600 }}
+        >
+          Back to Dashboard
         </button>
       </div>
     );
   }
 
   return (
-    <div className={styles.workspacePage}>
-      <header className={styles.workspaceHeader}>
-        <div className={styles.headerLeft}>
-          <button className={styles.backButton} onClick={() => navigate('/dashboard')}>
-            <ChevronLeft size={18} />
-          </button>
-          <div>
-            <h1>{project?.name}</h1>
-            <p>{project?.description || 'Collaborative design workspace'}</p>
+    <div style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden' }}>
+      {/* Thin top bar for back navigation */}
+      <div style={{
+        position: 'fixed',
+        top: 12,
+        left: 12,
+        zIndex: 150,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+      }}>
+        <button
+          onClick={() => navigate('/dashboard')}
+          title="Back to Dashboard"
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 8,
+            border: '1px solid rgba(255,255,255,0.12)',
+            background: '#232329',
+            color: 'rgba(255,255,255,0.8)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+            fontFamily: 'Inter, sans-serif',
+          }}
+        >
+          <ChevronLeft size={18} />
+        </button>
+        {project && (
+          <div style={{
+            background: '#232329',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: 8,
+            padding: '6px 12px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+          }}>
+            <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#fff', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {project.name}
+            </p>
           </div>
-        </div>
-        <div className={styles.headerRight}>
-          <button className="btn btn-primary" onClick={handleGenerateCode} disabled={generating}>
-            <Zap size={16} />
-            {generating ? 'Generating...' : 'Generate Code'}
-          </button>
-        </div>
-      </header>
-
-      <div className={styles.workspaceBody}>
-        <aside className={styles.leftSidebar}>
-          <div className={styles.toolbarHeader}>
-            <span>Tools</span>
-            <button className="btn btn-ghost" onClick={handleAddNode}>
-              <Plus size={14} /> Add node
-            </button>
-          </div>
-          <div className={styles.toolbarList}>
-            {TOOLBAR_TOOLS.map((tool) => (
-              <button
-                key={tool.id}
-                type="button"
-                className={`${styles.toolButton} ${activeTool === tool.id ? styles.toolButtonActive : ''}`}
-                onClick={() => setActiveTool(tool.id)}
-              >
-                <tool.icon size={16} />
-                <span>{tool.label}</span>
-              </button>
-            ))}
-          </div>
-        </aside>
-
-        <main className={styles.canvasSection}>
-          <div className={styles.canvasToolbar}>
-            <span className={styles.canvasStatus}>Active tool: {activeTool}</span>
-            <span className={styles.collaboratorBadge}>
-              {onlineUsers.length || 1} collaborator{onlineUsers.length === 1 ? '' : 's'} online
-            </span>
-          </div>
-          <WhiteboardCanvas
-            nodes={nodes}
-            activeTool={activeTool}
-            selectedNodeId={selectedNodeId}
-            onSelectNode={handleSelectNode}
-            onMoveNode={handleMoveNode}
-            onDeleteNode={handleDeleteNode}
-            onColorNode={handleColorNode}
-            onLabelChange={handleLabelChange}
-          />
-        </main>
-
+        )}
       </div>
 
+      {/* Full-screen Whiteboard */}
+      <Whiteboard
+        projectId={projectId}
+        onGenerateCode={handleGenerateCode}
+      />
+
+      {/* Code gen modal */}
       {showCodeGen && (
         <CodeGenModal isOpen onClose={() => setShowCodeGen(false)} />
       )}
