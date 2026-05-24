@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@mediapipe/camera_utils": "^0.3.1675466862",
+    "@mediapipe/hands": "^0.4.1675469240",
     "axios": "^1.16.1",
     "framer-motion": "^12.38.0",
     "lucide-react": "^1.16.0",

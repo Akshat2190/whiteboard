@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Zap, ChevronLeft, AlertCircle } from 'lucide-react';
@@ -8,6 +8,7 @@ import { projectService } from '../services/project.service';
 import { generateService } from '../services/generate.service';
 import CodeGenModal from '../components/CodeGenModal';
 import Whiteboard from '../components/Whiteboard/Whiteboard';
+import AirCanvas from '../components/whiteboard/AirCanvas';
 
 export default function Workspace() {
   const navigate = useNavigate();
@@ -17,6 +18,7 @@ export default function Workspace() {
 
   const [project, setProject] = useState(null);
   const [showCodeGen, setShowCodeGen] = useState(false);
+  const [showHandDraw, setShowHandDraw] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -45,16 +47,23 @@ export default function Workspace() {
     }
   }, [socket, projectId, joinProject]);
 
-  const handleGenerateCode = useCallback(async (elements) => {
-    if (!elements?.length) {
-      setError('Draw your architecture first.');
-      return;
-    }
+  // Called by Whiteboard's built-in "Generate Code" button.
+  // Now opens the hand-draw canvas instead of calling the API directly.
+  const handleGenerateCode = useCallback((_elements) => {
+    setShowHandDraw(true);
+  }, []);
+
+  // Called by HandDrawCanvas once the user clicks "Analyze & Generate".
+  // Receives the canvas PNG as a base64 data URL.
+  const handleHandDrawConfirm = useCallback(async (imageDataUrl) => {
+    setShowHandDraw(false);
     setGenerating(true);
     setShowCodeGen(true);
     setError('');
     try {
-      await generateService.generateCode(projectId, elements);
+      await generateService.generateCode(projectId, [
+        { type: 'handDrawing', imageData: imageDataUrl },
+      ]);
     } catch (err) {
       console.error('Generate code failed:', err);
       setError(err.message || 'Code generation failed');
@@ -142,7 +151,14 @@ export default function Workspace() {
         onGenerateCode={handleGenerateCode}
       />
 
-      {/* Code gen modal */}
+      {/* Air canvas — webcam + hand tracking, opens when user clicks Generate Code */}
+      {showHandDraw && (
+        <AirCanvas
+          onClose={() => setShowHandDraw(false)}
+        />
+      )}
+
+      {/* Code gen progress modal */}
       {showCodeGen && (
         <CodeGenModal isOpen onClose={() => setShowCodeGen(false)} />
       )}
