@@ -1,0 +1,527 @@
+/* ================================================================
+   AirCanvas — full standalone styles
+   No animation on any static UI text.
+   Wobble lives only on canvas dot trails (JS side).
+   ================================================================ */
+
+/* ── Root: full-screen modal — flex COLUMN ─────────────────────── */
+.root {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: 'Instrument Sans', system-ui, sans-serif;
+  background: #111318;
+}
+
+/* ================================================================
+   TOP BAR
+   ================================================================ */
+.topBar {
+  position: relative;
+  flex-shrink: 0;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  background: rgba(17, 19, 24, 0.96);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  z-index: 100;
+}
+
+/* Title — absolutely centered in the bar, no animation */
+.title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  font-family: 'Georgia', serif;
+  font-style: italic;
+  font-size: 22px;
+  font-weight: 400;
+  letter-spacing: -0.04em;
+  color: rgba(255, 255, 255, 0.92);
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+  /* NO animation, NO will-change */
+}
+
+.topLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 1;
+}
+
+.topRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 1;
+}
+
+/* ── Close button ───────────────────────────────────────────────── */
+.closeBtn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 140ms, color 140ms, border-color 140ms;
+  flex-shrink: 0;
+}
+.closeBtn:hover {
+  background: rgba(239, 68, 68, 0.16);
+  color: #EF4444;
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+/* ── Gesture badge ──────────────────────────────────────────────── */
+.gestureBadge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.04);
+  transition: border-color 200ms;
+}
+.gestureBadgeActive {
+  border-color: rgba(0, 255, 209, 0.25);
+  background: rgba(0, 255, 209, 0.06);
+}
+
+.gestureDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: background 200ms, box-shadow 200ms;
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.45; }
+}
+
+.gestureText {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+}
+
+/* ── Camera status pill ─────────────────────────────────────────── */
+.camPill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 0.02em;
+}
+
+.camPillDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: background 300ms;
+}
+
+/* ── Export button ──────────────────────────────────────────────── */
+.exportBtn {
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.28);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: not-allowed;
+  letter-spacing: 0.03em;
+}
+
+/* ================================================================
+   BODY ROW
+   ================================================================ */
+.body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* ================================================================
+   LEFT SIDEBAR
+   ================================================================ */
+.sidebar {
+  width: 56px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 0 12px;
+  gap: 0;
+  background: rgba(255, 255, 255, 0.025);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  z-index: 10;
+}
+
+.paletteStack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+/* 28px swatches — no glow unless selected */
+.swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  transition: transform 130ms ease;
+  outline: none;
+  flex-shrink: 0;
+}
+.swatch:hover {
+  transform: scale(1.18);
+}
+.swatchActive {
+  transform: scale(1.12);
+  /* box-shadow set inline only on active */
+}
+
+.sidebarDivider {
+  width: 28px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 14px 0;
+}
+
+/* Undo / Clear icon-only buttons */
+.sidebarIconBtn {
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.45);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 6px;
+  transition: background 130ms, color 130ms, border-color 130ms;
+}
+.sidebarIconBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.85);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+/* ================================================================
+   CANVAS AREA
+   ================================================================ */
+.canvasArea {
+  flex: 1;
+  position: relative;
+  background: #111318;
+  overflow: hidden;
+}
+
+/* Dot-grid texture */
+.dotGrid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.12) 1px, transparent 1px);
+  background-size: 28px 28px;
+  z-index: 0;
+}
+
+/* Drawing canvas */
+.drawCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* ================================================================
+   PiP CAMERA
+   ================================================================ */
+.pip {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 200px;
+  height: 150px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1.5px solid rgba(255, 255, 255, 0.11);
+  z-index: 5;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.55);
+}
+
+.pipVideo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+  display: block;
+  background: #000;
+}
+
+/* LIVE badge — top-left corner of PiP */
+.liveBadge {
+  position: absolute;
+  top: 7px;
+  left: 8px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #fff;
+  background: #EF4444;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: inherit;
+  line-height: 1.4;
+  pointer-events: none;
+}
+
+/* ================================================================
+   BOTTOM BAR
+   ================================================================ */
+.bottomBar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: rgba(17, 19, 24, 0.9);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  gap: 12px;
+}
+
+/* Left: label + slider + readout */
+.sliderGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.sliderLabel {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+  font-family: inherit;
+}
+
+.slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 120px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.1);
+  outline: none;
+  cursor: pointer;
+}
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--thumb-color, #00FFD1);
+  cursor: pointer;
+  box-shadow: 0 0 5px var(--thumb-color, #00FFD1);
+}
+.slider::-moz-range-thumb {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--thumb-color, #00FFD1);
+  border: none;
+  cursor: pointer;
+}
+
+.sliderValue {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.4);
+  min-width: 26px;
+  font-family: inherit;
+}
+
+/* Center: gesture hint row with dividers */
+.hintRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.3);
+  font-family: inherit;
+  letter-spacing: 0.01em;
+}
+
+.hintDiv {
+  display: inline-block;
+  width: 1px;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.12);
+  flex-shrink: 0;
+}
+
+/* Right: fist hint — muted italic */
+.fistHint {
+  font-size: 11px;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.25);
+  font-family: inherit;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ================================================================
+   CLEAR RING
+   ================================================================ */
+.clearRing {
+  position: absolute;
+  bottom: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 15;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  filter: drop-shadow(0 0 10px rgba(249, 115, 22, 0.55));
+}
+
+.clearLabel {
+  font-size: 10px;
+  font-weight: 600;
+  color: #F97316;
+  font-family: inherit;
+  letter-spacing: 0.06em;
+}
+
+/* ================================================================
+   LOADING / ERROR
+   ================================================================ */
+.loadingOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(17, 19, 24, 0.75);
+  gap: 14px;
+  pointer-events: none;
+}
+
+.spinner {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2.5px solid rgba(0, 255, 209, 0.14);
+  border-top-color: #00FFD1;
+  animation: spin 0.75s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loadingText {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.45);
+  font-family: inherit;
+}
+
+.errorCard {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(17, 19, 24, 0.92);
+  gap: 8px;
+  padding: 32px;
+}
+
+.errorTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #FCA5A5;
+  font-family: inherit;
+}
+
+.errorMsg {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.4);
+  max-width: 320px;
+  text-align: center;
+  line-height: 1.6;
+  font-family: inherit;
+}
+
+.fallbackBtn {
+  padding: 9px 24px;
+  border-radius: 7px;
+  border: 1px solid rgba(0, 255, 209, 0.28);
+  background: rgba(0, 255, 209, 0.06);
+  color: #00FFD1;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 140ms;
+}
+.fallbackBtn:hover {
+  background: rgba(0, 255, 209, 0.13);
+}
+
+/* ── Responsive ─────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .pip { width: 130px; height: 98px; }
+  .hintRow { display: none; }
+  .title { font-size: 18px; }
+}
